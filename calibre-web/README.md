@@ -20,10 +20,8 @@ named volume `calibreweb`.  Adjust as needed.
 
 ## Instructions
 
-podman build --tag calibreweb:socket-activated
-
-cp calibre-web.service calibre-web.socket ~/.config/systemd/user/
-systemctl --user daemon-reload
-systemctl --user enable calibre-web.socket
-systemctl --user start calibre-web.socket
-
+* podman build --tag calibreweb:socket-activated
+* cp calibre-web.service calibre-web.socket ~/.config/systemd/user/
+* systemctl --user daemon-reload
+* systemctl --user enable calibre-web.socket
+* systemctl --user start calibre-web.socket
