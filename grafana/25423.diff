@@ -1,0 +1,34 @@
+--- pkg/api/http_server.go.orig	2023-08-22 12:18:30.907982279 -0700
++++ pkg/api/http_server.go	2023-08-22 12:58:16.243815510 -0700
+@@ -10,6 +10,7 @@
+ 	"os"
+ 	"path"
+ 	"path/filepath"
++	"strconv"
+ 	"strings"
+ 	"sync"
+ 
+@@ -454,11 +455,19 @@
+ 
+ 	switch hs.Cfg.Protocol {
+ 	case setting.HTTPScheme, setting.HTTPSScheme, setting.HTTP2Scheme:
+-		listener, err := net.Listen("tcp", hs.httpSrv.Addr)
+-		if err != nil {
+-			return nil, fmt.Errorf("failed to open listener on address %s: %w", hs.httpSrv.Addr, err)
++		if os.Getenv("LISTEN_PID") == strconv.Itoa(os.Getpid()) {
++			listener, err := net.FileListener(os.NewFile(3, "socket-activated"))
++			if err != nil {
++				return nil, fmt.Errorf("failed to obtain socket from systemd%s: %s", hs.httpSrv.Addr, err)
++			}
++			return listener, nil
++		} else {
++			listener, err := net.Listen("tcp", hs.httpSrv.Addr)
++			if err != nil {
++				return nil, fmt.Errorf("failed to open listener on address %s: %w", hs.httpSrv.Addr, err)
++			}
++			return listener, nil
+ 		}
+-		return listener, nil
+ 	case setting.SocketScheme:
+ 		listener, err := net.ListenUnix("unix", &net.UnixAddr{Name: hs.Cfg.SocketPath, Net: "unix"})
+ 		if err != nil {
