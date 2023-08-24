@@ -1,0 +1,8 @@
+[Unit]
+Description=grafana
+
+[Socket]
+ListenStream=5000
+
+[Install]
+WantedBy=sockets.target

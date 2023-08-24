@@ -1,0 +1,36 @@
+FROM python:slim-bookworm as builder
+RUN apt-get update -y && \
+    apt-get -yq --no-install-recommends install build-essential && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*  /var/tmp/*
+RUN pip wheel netifaces
+
+FROM python:slim-bookworm
+# libnss3 libxcomposite1 libxrandr2 libxtst6 libxkbfile1 are needed to load libQt6WebEngineCore.so.6 for pdf handling
+RUN apt-get update -y && \
+    apt-get -yq --no-install-recommends install wget xdg-utils xz-utils \
+    libegl1 libopengl0 libglx0 libxkbcommon0 libfontconfig \
+    libnss3 libxcomposite1 libxrandr2 libxdamage1 libxtst6 libxkbfile1 \
+    patch && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*  /var/tmp/*
+COPY --from=builder /netifaces*.whl /tmp
+RUN pip install file://`ls -1 /tmp/netifaces*.whl` && rm /tmp/netifaces*.whl
+
+RUN pip install calibreweb
+
+# Install calibre for ebook-convert (requires many GUI libraries to enable Qt even though the application is cli based
+RUN wget --no-check-certificate -nv -O- https://download.calibre-ebook.com/linux-installer.sh | sh /dev/stdin && \
+    rm -rf /tmp/calibre-installer-cache
+
+# Set user and group
+ARG uid=1000
+ARG gid=1000
+RUN groupadd -g ${gid} calibreweb
+RUN useradd -u ${uid} -g calibreweb -s /bin/sh -m calibreweb
+
+# Apply socket-activation patch
+COPY  2871.patch /tmp
+RUN cd /usr/local/lib/python*/site-packages/calibreweb && patch -p1 /tmp/2871.patch && rm /tmp/2871.patch
+
+USER ${uid}:${gid}
+ENV PYTHONUNBUFFERED=1
+CMD ["cps"]

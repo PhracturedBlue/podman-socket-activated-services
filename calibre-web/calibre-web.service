@@ -1,0 +1,62 @@
+[Unit]
+Description=calibre-web container
+Wants=network-online.target
+After=network-online.target
+RequiresMountsFor=%t/containers
+
+[Service]
+Environment=PODMAN_SYSTEMD_UNIT=%n
+Restart=on-failure
+TimeoutStopSec=70
+ExecStartPre=-/usr/bin/podman stop %N
+ExecStartPre=-/usr/bin/podman rm %N
+ExecStartPre=/bin/rm -f %t/%n.ctr-id
+ExecStart=/usr/bin/podman run --name %N\
+        --network=none \
+        --cidfile=%t/%n.ctr-id \
+        --cgroups=no-conmon \
+        --sdnotify=conmon \
+        --tz=local \
+        --detach \
+        --replace \
+	-v calibreweb:/config \
+	-v ebooks:/books \
+	calibreweb:socket-activated
+ExecStop=/usr/bin/podman stop \
+        --ignore \
+        --cidfile=%t/%n.ctr-id
+Type=notify
+NotifyAccess=all
+
+[Install]
+WantedBy=default.target
+
+
+[Unit]
+Description=Calibre container
+After=docker.service
+Requires=docker.service
+
+[Service]
+#TimeoutStartSec=0
+Restart=always
+ExecStartPre=-/usr/local/sbin/systemd_docker stop %N
+# Don't remove and recreate container every time, as it is very expensive to start the 1st time
+# ExecStartPre=-/usr/local/sbin/systemd_docker rm %N
+ExecStartPre=/bin/sh -c "/usr/local/sbin/systemd_docker ps -a -f name=%N | /usr/bin/grep -q %N || \
+    /usr/local/sbin/systemd_docker create --name %N \
+    -e VIRTUAL_HOST=calibre.lan \
+    -e VIRTUAL_PORT=8083 \
+    --name docker.calibre \
+    --network inter-cont \
+    -v /etc/localtime:/etc/localtime:ro \
+    -v calibre:/config \
+    -v /mnt/storage/ebooks/:/books \
+    -e PUID=1999 \
+    -e PGID=1999 \
+    -e DOCKER_MODS=linuxserver/mods:universal-calibre \
+    lscr.io/linuxserver/calibre-web:latest"
+ExecStart=/usr/local/sbin/systemd_docker start -a %N
+
+[Install]
+WantedBy=multi-user.target
