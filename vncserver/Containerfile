@@ -1,0 +1,52 @@
+FROM debian:bookworm-slim
+
+RUN true \
+&& apt-get update \
+&& apt-get install --no-install-recommends -y \
+   openssh-client \
+   lxde-core lxterminal \
+   tigervnc-common tigervnc-standalone-server netbase \
+   fonts-dejavu xfonts-base xfonts-scalable \
+   sudo \
+   locales \
+   vim-tiny \
+   firefox-esr \
+   xinit \
+&& apt-get clean
+
+RUN useradd \
+  --groups=sudo \
+  --create-home \
+  --home-dir=/home/vncuser \
+  --shell=/bin/bash \
+  vncuser \
+&& sed -i '/%sudo[[:space:]]/ s/ALL[[:space:]]*$/NOPASSWD:ALL/' /etc/sudoers
+
+COPY passwd /home/vncuser/.vnc/passwd
+COPY xstartup /home/vncuser/.vnc/xstartup
+COPY inetd_sock /usr/local/bin/inetd_sock
+COPY sxinit /usr/local/bin/sxinit
+
+RUN touch /home/vncuser/.Xauthority
+
+RUN sed -i 's/^# *\(en_US.UTF-8\)/\1/' /etc/locale.gen && locale-gen 
+#RUN localedef -v -c -i en_US -f UTF-8 en_US.UTF-8 || :
+
+#Hack to disable polkit (No session for pid)
+RUN mv /usr/bin/lxpolkit /usr/bin/lxpolkit.ORIG
+
+RUN chown -R vncuser:vncuser /home/vncuser && chmod 700 /home/vncuser/.vnc && chmod 600 /home/vncuser/.vnc/passwd
+
+ENV LC_ALL=en_US.UTF-8
+ENV LANGUAGE=en_US.UTF-8
+ENV LANG=en_US.UTF-8
+ENV DISPLAY=:1
+
+USER vncuser
+WORKDIR /home/vncuser
+# CMD ["vncserver", "-localhost", "no", "-fg", ":1"]
+# Enable socket-activation
+# apparently sxinit doesn't like running as pid 1, so use sh -c
+# This breaks the ability to send SIGTERM to kill to container though
+CMD ["/usr/local/bin/inetd_sock", "/bin/sh", "-c", \
+     "/usr/local/bin/sxinit :1 -depth 24 -inetd -once -rfbauth /home/vncuser/.vnc/passwd -geometry 1920x1080"]

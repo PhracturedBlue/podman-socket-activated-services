@@ -1,0 +1,8 @@
+[Unit]
+Description=XVNC Server on port 5901
+
+[Socket]
+ListenStream=[::]:5901
+
+[Install]
+WantedBy=sockets.target
