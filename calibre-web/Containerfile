@@ -15,7 +15,7 @@ RUN apt-get update -y && \
 COPY --from=builder /netifaces*.whl /tmp
 RUN pip install file://`ls -1 /tmp/netifaces*.whl` && rm /tmp/netifaces*.whl
 
-RUN pip install calibreweb
+RUN pip install calibreweb gevent
 
 # Install calibre for ebook-convert (requires many GUI libraries to enable Qt even though the application is cli based
 RUN wget --no-check-certificate -nv -O- https://download.calibre-ebook.com/linux-installer.sh | sh /dev/stdin && \
@@ -27,10 +27,14 @@ ARG gid=1000
 RUN groupadd -g ${gid} calibreweb
 RUN useradd -u ${uid} -g calibreweb -s /bin/sh -m calibreweb
 
+# Why does debian have /etc/timezone and /etc/localtime?  python gets mad if they conflict
+RUN rm /etc/timezone
+
 # Apply socket-activation patch
 COPY  2871.patch /tmp
-RUN cd /usr/local/lib/python*/site-packages/calibreweb && patch -p1 /tmp/2871.patch && rm /tmp/2871.patch
+RUN cd /usr/local/lib/python*/site-packages/calibreweb && patch -p1 < /tmp/2871.patch && rm /tmp/2871.patch
 
 USER ${uid}:${gid}
 ENV PYTHONUNBUFFERED=1
+ENV CALIBRE_DBPATH=/config
 CMD ["cps"]
