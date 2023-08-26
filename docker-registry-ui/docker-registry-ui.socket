@@ -1,0 +1,8 @@
+[Unit]
+Description=docker-registry
+
+[Socket]
+ListenStream=0.0.0.0:3001
+
+[Install]
+WantedBy=sockets.target
