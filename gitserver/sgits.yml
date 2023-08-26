@@ -1,0 +1,11 @@
+# http listen address (ignored if socket-activation is available)
+listen: :3558
+
+# root directory of your projects
+root: /srv/git
+
+# username to git server
+#username: name
+
+# password for username
+#password: pass
