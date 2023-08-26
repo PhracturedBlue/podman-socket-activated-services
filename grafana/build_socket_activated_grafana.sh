@@ -12,7 +12,7 @@ rm -rf grafana-$ver
 tar -xf v${ver}.tar.gz
 cd grafana-$ver
 patch < ../25423.diff
-podman build --tag dockerhub.lan/nas/grafana:sa-$ver .
+podman build --tag grafana:sa-$ver .
 cd ..
 rm -rf grafana-$ver
-rm tar -xf v${ver}.tar.gz
+rm v${ver}.tar.gz

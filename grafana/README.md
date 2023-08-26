@@ -13,5 +13,5 @@ The included script will rebuild grafana from source using the updated patch
   ./build_socket_activated_grafana.sh
 * cp grafana.service grafana.socket ~/.config/systemd/user/
 * systemctl --user daemon-reload
-* systemctl --user enable calibre-web.socket
-* systemctl --user start calibre-web.socket
+* systemctl --user enable grafana.socket
+* systemctl --user start grafana.socket
