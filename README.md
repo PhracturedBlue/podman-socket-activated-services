@@ -1,7 +1,7 @@
 # podman-socket-activated-services
 
 This repo provides templates for enabling various podman services with systemd socket-activation.
-Socket-activation is supported in podman as of version 2.4, and can provide more secure and
+Socket-activation of containers is supported in podman as of version 3.4.0, and can provide more secure and
 performant containers by enabling rootless containers with `--network=none` or without the need
 for `slirp4netns` or `pasta` network translation.  Socket activation can also improve startup
 time by deferring application start to 1st use, which can be helpful for more rarely used
