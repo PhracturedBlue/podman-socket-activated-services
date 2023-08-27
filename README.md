@@ -13,6 +13,9 @@ unix-domain-sockets behind a reverse-proxy like Nginx.
 While many common services support socket-activation out of the box, others require some
 additional coaxing to enable.
 
+**Note**: Podman also suports socket-activation of its own servese (a unix-domain-socket taht can be used to
+administer podman).  That capability is not the focus of this reposity.
+
 ## Notes about testing socket activation
 
 Changing service/socket files, reloading them, and restarting services can be tedious when
