@@ -1,0 +1,21 @@
+# application.lan
+upstream application.lan {
+    server unix:/socket/application.lan/application.sock;
+}
+
+server {
+    server_name application.lan;
+    http2 on;
+    # access_log /var/log/nginx/access.log vhost;
+    listen 11080 ;
+    location / {
+        proxy_pass http://application.lan;
+        set $upstream_keepalive false;
+    }
+}
+
+server {
+    # Default listener
+    listen 11080 default_server;
+    return 404;
+}
