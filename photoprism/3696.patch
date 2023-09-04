@@ -1,0 +1,180 @@
+From ca5af7f2fd63dfb7561b7ac090867ecbdab840ee Mon Sep 17 00:00:00 2001
+From: Geoffrey Hausheer <rc2012@pblue.org>
+Date: Sat, 2 Sep 2023 13:44:22 -0700
+Subject: [PATCH] Add systemd socket activation support
+
+---
+ go.mod                     |  1 +
+ go.sum                     |  3 ++
+ internal/server/start.go   | 65 ++++++++++++++++++++++----------------
+ scripts/dist/entrypoint.sh |  2 +-
+ 4 files changed, 42 insertions(+), 29 deletions(-)
+
+diff --git a/go.mod b/go.mod
+index f954024b2f..6c88f97b50 100644
+--- a/go.mod
++++ b/go.mod
+@@ -2,6 +2,7 @@ module github.com/photoprism/photoprism
+ 
+ require (
+ 	github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de
++	github.com/coreos/go-systemd/v22 v22.5.0
+ 	github.com/disintegration/imaging v1.6.2
+ 	github.com/djherbis/times v1.5.0
+ 	github.com/dsoprea/go-exif/v3 v3.0.1
+diff --git a/go.sum b/go.sum
+index a9f1155987..a122e97bce 100644
+--- a/go.sum
++++ b/go.sum
+@@ -52,6 +52,8 @@ github.com/chzyer/test v0.0.0-20180213035817-a1ea475d72b1/go.mod h1:Q3SI9o4m/ZMn
+ github.com/chzyer/test v1.0.0 h1:p3BQDXSxOhOG0P9z6/hGnII4LGiEPOYBhs8asl/fC04=
+ github.com/chzyer/test v1.0.0/go.mod h1:2JlltgoNkt4TW/z9V/IzDdFaMTM2JPIi26O1pF38GC8=
+ github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
++github.com/coreos/go-systemd/v22 v22.5.0 h1:RrqgGjYQKalulkV8NGVIfkXQf6YYmOyiJKk8iXXhfZs=
++github.com/coreos/go-systemd/v22 v22.5.0/go.mod h1:Y58oyj3AT4RCenI/lSvhwexgC+NSVTIJ3seZv2GcEnc=
+ github.com/cpuguy83/go-md2man/v2 v2.0.2 h1:p1EgwI/C7NhT0JmVkwCD2ZBK8j4aeHQX2pMHHBfMQ6w=
+ github.com/cpuguy83/go-md2man/v2 v2.0.2/go.mod h1:tgQtvFlXSQOSOSIRvRPT7W67SCa46tRHOmNcaadrF8o=
+ github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
+@@ -165,6 +167,7 @@ github.com/goccmack/gocc v0.0.0-20230228185258-2292f9e40198/go.mod h1:DTh/Y2+Nbn
+ github.com/goccy/go-json v0.9.7/go.mod h1:6MelG93GURQebXPDq3khkgXZkazVtN9CRI+MGFi0w8I=
+ github.com/goccy/go-json v0.10.2 h1:CrxCmQqYDkv1z7lO7Wbh2HN93uovUHgrECaO5ZrCXAU=
+ github.com/goccy/go-json v0.10.2/go.mod h1:6MelG93GURQebXPDq3khkgXZkazVtN9CRI+MGFi0w8I=
++github.com/godbus/dbus/v5 v5.0.4/go.mod h1:xhWf0FNVPg57R7Z0UbKHbJfkEywrmjJnf7w5xrFpKfA=
+ github.com/golang-sql/civil v0.0.0-20190719163853-cb61b32ac6fe h1:lXe2qZdvpiX5WZkZR4hgp4KJVfY3nMkvmwbVkpv1rVY=
+ github.com/golang-sql/civil v0.0.0-20190719163853-cb61b32ac6fe/go.mod h1:8vg3r2VgvsThLBIFL93Qb5yWzgyZWhEmBwUJWevAkK0=
+ github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0/go.mod h1:E/TSTwGwJL78qG/PmXZO1EjYhfJinVAhrmmHX6Z8B9k=
+diff --git a/internal/server/start.go b/internal/server/start.go
+index 0e2e6b4834..c9d987b512 100644
+--- a/internal/server/start.go
++++ b/internal/server/start.go
+@@ -10,6 +10,8 @@ import (
+ 	"golang.org/x/crypto/acme/autocert"
+ 	"golang.org/x/sync/errgroup"
+ 
++	"github.com/coreos/go-systemd/v22/activation"
++
+ 	"github.com/gin-contrib/gzip"
+ 	"github.com/gin-gonic/gin"
+ 
+@@ -74,13 +76,32 @@ func Start(ctx context.Context, conf *config.Config) {
+ 
+ 	var tlsErr error
+ 	var tlsManager *autocert.Manager
+-	var server *http.Server
++	var listener net.Listener
++
++	server := &http.Server{Handler: router}
+ 
+ 	// Start HTTP server.
+-	if unixSocket := conf.HttpSocket(); unixSocket != "" {
+-		var listener net.Listener
++	// 1st check for socket activation
++	listeners, err := activation.Listeners()
++	if err != nil {
++		log.Errorf("server: Socket activation detection failed (%s)", err)
++		return
++	}
++	if len(listeners) > 1 {
++		log.Errorf("server: Only expected 1 activated socket, found %d", len(listeners))
++		return
++	} else if len(listeners) == 1 {
++		if publicCert, privateKey := conf.TLS(); publicCert != "" && privateKey != "" {
++			log.Infof("server: starting in tls mode")
++
++			go StartTLS(server, listeners[0], publicCert, privateKey)
++		} else {
++			log.Infof("server: %v", listeners[0].Addr())
++
++			go StartHttp(server, listeners[0])
++		}
++	} else if unixSocket := conf.HttpSocket(); unixSocket != "" {
+ 		var unixAddr *net.UnixAddr
+-		var err error
+ 
+ 		if unixAddr, err = net.ResolveUnixAddr("unix", unixSocket); err != nil {
+ 			log.Errorf("server: resolve unix address failed (%s)", err)
+@@ -89,11 +110,6 @@ func Start(ctx context.Context, conf *config.Config) {
+ 			log.Errorf("server: listen unix address failed (%s)", err)
+ 			return
+ 		} else {
+-			server = &http.Server{
+-				Addr:    unixSocket,
+-				Handler: router,
+-			}
+-
+ 			log.Infof("server: listening on %s [%s]", unixSocket, time.Since(start))
+ 
+ 			go StartHttp(server, listener)
+@@ -106,30 +122,23 @@ func Start(ctx context.Context, conf *config.Config) {
+ 		}
+ 		log.Infof("server: starting in auto tls mode on %s [%s]", server.Addr, time.Since(start))
+ 		go StartAutoTLS(server, tlsManager, conf)
+-	} else if publicCert, privateKey := conf.TLS(); unixSocket == "" && publicCert != "" && privateKey != "" {
+-		log.Infof("server: starting in tls mode")
+-		server = &http.Server{
+-			Addr:    fmt.Sprintf("%s:%d", conf.HttpHost(), conf.HttpPort()),
+-			Handler: router,
+-		}
+-		log.Infof("server: listening on %s [%s]", server.Addr, time.Since(start))
+-		go StartTLS(server, publicCert, privateKey)
+ 	} else {
+-		log.Infof("server: %s", tlsErr)
++		var listener net.Listener
++		var err error
+ 
+ 		socket := fmt.Sprintf("%s:%d", conf.HttpHost(), conf.HttpPort())
+ 
+-		if listener, err := net.Listen("tcp", socket); err != nil {
++		if listener, err = net.Listen("tcp", socket); err != nil {
+ 			log.Errorf("server: %s", err)
+ 			return
+-		} else {
+-			server = &http.Server{
+-				Addr:    socket,
+-				Handler: router,
+-			}
++		}
+ 
+-			log.Infof("server: listening on %s [%s]", socket, time.Since(start))
++		log.Infof("server: listening on %s [%s]", socket, time.Since(start))
+ 
++		if publicCert, privateKey := conf.TLS(); unixSocket == "" && publicCert != "" && privateKey != "" {
++			log.Infof("server: starting in tls mode")
++			go StartTLS(server, listener, publicCert, privateKey)
++		} else {
+ 			go StartHttp(server, listener)
+ 		}
+ 	}
+@@ -137,7 +146,7 @@ func Start(ctx context.Context, conf *config.Config) {
+ 	// Graceful HTTP server shutdown.
+ 	<-ctx.Done()
+ 	log.Info("server: shutting down")
+-	err := server.Close()
++	err = server.Close()
+ 	if err != nil {
+ 		log.Errorf("server: shutdown failed (%s)", err)
+ 	}
+@@ -155,8 +164,8 @@ func StartHttp(s *http.Server, l net.Listener) {
+ }
+ 
+ // StartTLS starts the web server in https mode.
+-func StartTLS(s *http.Server, httpsCert, privateKey string) {
+-	if err := s.ListenAndServeTLS(httpsCert, privateKey); err != nil {
++func StartTLS(s *http.Server, listener net.Listener, httpsCert, privateKey string) {
++	if err := s.ServeTLS(listener, httpsCert, privateKey); err != nil {
+ 		if err == http.ErrServerClosed {
+ 			log.Info("server: shutdown complete")
+ 		} else {
+diff --git a/scripts/dist/entrypoint.sh b/scripts/dist/entrypoint.sh
+index 52a9f0f174..5bc2e3a93e 100755
+--- a/scripts/dist/entrypoint.sh
++++ b/scripts/dist/entrypoint.sh
+@@ -115,7 +115,7 @@ else
+ 
+   # run command
+   ([[ ${DOCKER_ENV} != "prod" ]] || "/scripts/audit.sh") \
+-   && (while "$@"; ret=$?; [[ $ret -eq 0 ]]; do echo "${@}"; done) &
++   && if [[ -n $LISTEN_FDS ]]; then exec "$@"; else (while "$@"; ret=$?; [[ $ret -eq 0 ]]; do echo "${@}"; done) & fi
+ fi
+ 
+ PID=$!

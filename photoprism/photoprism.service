@@ -1,0 +1,40 @@
+[Unit]
+Description=PhotoPrism container
+Wants=network-online.target
+Requires=podman.mariadb.service
+After=network-online.target mariadb.service
+RequiresMountsFor=%t/containers
+
+[Service]
+Environment=PODMAN_SYSTEMD_UNIT=%n
+Restart=on-failure
+TimeoutStopSec=70
+ExecStartPre=-/usr/bin/podman stop %N
+ExecStartPre=-/usr/bin/podman rm %N
+ExecStartPre=/bin/rm -f %t/%n.ctr-id
+ExecStart=/usr/bin/podman run --name %N\
+        --network=none \
+        --cidfile=%t/%n.ctr-id \
+        --cgroups=no-conmon \
+        --sdnotify=conmon \
+        --tz=local \
+        --detach \
+        --replace \
+        -v %t/mariadb/:/mysql \
+        -v /mnt/storage/photos:/photoprism/originals  \
+        -v /mnt/misc/photoprism.cache:/photoprism/storage \
+	-e PHOTOPRISM_INIT= \
+        -e PHOTOPRISM_DATABASE_DRIVER=mysql \
+        -e PHOTOPRISM_DATABASE_SERVER=/mysql/mysqld.sock \
+        -e PHOTOPRISM_DATABASE_USER=photoprism \
+        -e PHOTOPRISM_DATABASE_NAME=photoprism \
+        -e PHOTOPRISM_AUTH_MODE=password \
+        localhost/photoprism:socketactivated
+ExecStop=/usr/bin/podman stop \
+        --ignore \
+        --cidfile=%t/%n.ctr-id
+Type=notify
+NotifyAccess=all
+
+[Install]
+WantedBy=default.target
