@@ -19,6 +19,8 @@ def main():
             assert int(os.environ['LISTEN_PID']) == os.getpid()
             count = int(os.environ['LISTEN_FDS'])
             socks = [socket.socket(fileno=_+SD_LISTEN_FDS_START) for _ in range(count)]
+            for sock in socks:
+                print(f"Found socket-activated socket: {sock.getsockname()}")
             args['sock'] = socks
         except Exception as _e:
             print(f"ERROR: Failed to use activated socket: {repr(_e)}")
