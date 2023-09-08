@@ -1,0 +1,88 @@
+From 60cfdb083af2de600c7f3df1642dbb21c79261d3 Mon Sep 17 00:00:00 2001
+From: Geoffrey Hausheer <rc2012@pblue.org>
+Date: Fri, 8 Sep 2023 05:14:24 -0700
+Subject: [PATCH] Support building images via podman
+
+---
+ README.md                  | 12 ++++++++++++
+ deployment/docker/Makefile | 16 +++++++++-------
+ 2 files changed, 21 insertions(+), 7 deletions(-)
+
+diff --git a/README.md b/README.md
+index 6b326ab8a60..d73f7735087 100644
+--- a/README.md
++++ b/README.md
+@@ -963,6 +963,18 @@ For example, the following command builds the image on top of [scratch](https://
+ ROOT_IMAGE=scratch make package-victoria-metrics
+ ```
+ 
++#### Building VictoriaMetrics with Podman
++
++VictoriaMetrics can be built with Podman in either rootful or rootless mode.
++
++When building via rootlful Podman, simply add `DOCKER=podman` to the relevant `make` commandline.  To build
++via rootless Podman, add `DOCKER=podman DOCKER_RUN="podman run --userns=keep-id"` to the `make`
++commandline.
++
++For example: `make victoria-metrics-pure DOCKER=podman DOCKER_RUN="podman run --userns=keep-id"`
++
++Note that `production` builds are not supported via Podman becuase Podman does not support `buildx`.
++
+ ## Start with docker-compose
+ 
+ [Docker-compose](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/master/deployment/docker/docker-compose.yml)
+diff --git a/deployment/docker/Makefile b/deployment/docker/Makefile
+index c2d2012e3d7..6510aba1430 100644
+--- a/deployment/docker/Makefile
++++ b/deployment/docker/Makefile
+@@ -8,9 +8,11 @@ CERTS_IMAGE := alpine:3.18.3
+ GO_BUILDER_IMAGE := golang:1.21.1-alpine
+ BUILDER_IMAGE := local/builder:2.0.0-$(shell echo $(GO_BUILDER_IMAGE) | tr :/ __)-1
+ BASE_IMAGE := local/base:1.1.4-$(shell echo $(ROOT_IMAGE) | tr :/ __)-$(shell echo $(CERTS_IMAGE) | tr :/ __)
+-DOCKER_BUILD ?= docker build
+-DOCKER_COMPOSE ?= docker compose
+-DOCKER_IMAGE_LS ?= docker image ls --format '{{.Repository}}:{{.Tag}}'
++DOCKER ?= docker
++DOCKER_RUN ?= $(DOCKER) run
++DOCKER_BUILD ?= $(DOCKER) build
++DOCKER_COMPOSE ?= $(DOCKER) compose
++DOCKER_IMAGE_LS ?= $(DOCKER) image ls --format '{{.Repository}}:{{.Tag}}'
+ 
+ package-base:
+ 	($(DOCKER_IMAGE_LS) | grep -q '$(BASE_IMAGE)$$') \
+@@ -29,7 +31,7 @@ package-builder:
+ 
+ app-via-docker: package-builder
+ 	mkdir -p gocache-for-docker
+-	docker run --rm \
++	$(DOCKER_RUN) --rm \
+ 		--user $(shell id -u):$(shell id -g) \
+ 		--mount type=bind,src="$(shell pwd)",dst=/VictoriaMetrics \
+ 		-w /VictoriaMetrics \
+@@ -44,7 +46,7 @@ app-via-docker: package-builder
+ 
+ app-via-docker-windows: package-builder
+ 	mkdir -p gocache-for-docker
+-	docker run --rm \
++	$(DOCKER_RUN) --rm \
+ 		--user $(shell id -u):$(shell id -g) \
+ 		--mount type=bind,src="$(shell pwd)",dst=/VictoriaMetrics \
+ 		-w /VictoriaMetrics \
+@@ -72,7 +74,7 @@ publish-via-docker: \
+ 	app-via-docker-linux-arm64 \
+ 	app-via-docker-linux-ppc64le \
+ 	app-via-docker-linux-386
+-	docker buildx build \
++	$(DOCKER) buildx build \
+ 		--platform=linux/amd64,linux/arm,linux/arm64,linux/ppc64le,linux/386 \
+ 		--build-arg certs_image=$(CERTS_IMAGE) \
+ 		--build-arg root_image=$(ROOT_IMAGE) \
+@@ -86,7 +88,7 @@ publish-via-docker: \
+ 		bin
+ 
+ run-via-docker: package-via-docker
+-	docker run -it --rm \
++	$(DOCKER_RUN) -it --rm \
+ 		--user $(shell id -u):$(shell id -g) \
+ 		--net host \
+ 		$(DOCKER_OPTS) \

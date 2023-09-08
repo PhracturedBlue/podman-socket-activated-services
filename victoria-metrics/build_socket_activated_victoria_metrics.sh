@@ -2,7 +2,7 @@
 set -e
 repo=VictoriaMetrics/VictoriaMetrics
 project=VictoriaMetrics
-patch=4973.patch
+patch="4973.patch 4978.patch"
 tag=socket
 
 if [[ "x$1" != "x" ]]; then
@@ -17,8 +17,13 @@ fi
 rm -rf $project-$ver
 tar -xf v${ver}.tar.gz
 cd $project-$ver
-patch -p1 < ../$patch
-podman build --tag dockerhub.lan/nas/$project:$tag --tag dockerhub.lan/nas/$project:$ver-$tag .
+for _p in $patch; do patch -p1 < ../$_p; done
+make package-victoria-metrics-pure DOCKER=podman DOCKER_RUN="podman run --userns=keep-id"
+set -x
+reltag=`podman image ls --format '{{.Repository}}:{{.Tag}}' | grep '^localhost/victoriametrics/victoria-metrics' | head -n 1`
+podman tag $reltag victoria-metrics:$tag
+podman tag $reltag victoria-metrics:$ver-$tag
+podman image rm $reltag
 cd ..
 rm -rf $project-$ver
 rm v${ver}.tar.gz
