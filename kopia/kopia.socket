@@ -1,0 +1,8 @@
+[Unit]
+Description=kopia
+
+[Socket]
+ListenStream=55515
+
+[Install]
+WantedBy=sockets.target
