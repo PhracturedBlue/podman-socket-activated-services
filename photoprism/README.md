@@ -22,7 +22,7 @@ has been started with socket-activation exposing a unix-domain-socket at
 
 ## Usage
 * Build socket-activated PhotoPrism
-  ./build_photoprism.sh
+  ./build_socket_activated_photoprism.sh
 * Alter photoprism.service:
   * Update database settings
   * select password if needed
