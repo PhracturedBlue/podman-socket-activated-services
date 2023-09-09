@@ -1,5 +1,5 @@
 diff --git a/registry/listener/listener.go b/registry/listener/listener.go
-index b93a7a63..314440f0 100644
+index b93a7a63ff..2548f75eca 100644
 --- a/registry/listener/listener.go
 +++ b/registry/listener/listener.go
 @@ -5,6 +5,8 @@ import (
@@ -7,7 +7,7 @@ index b93a7a63..314440f0 100644
  	"os"
  	"time"
 +
-+	"github.com/coreos/go-systemd/activation"
++	"github.com/coreos/go-systemd/v22/activation"
  )
  
  // tcpKeepAliveListener sets TCP keep-alive timeouts on accepted
@@ -25,7 +25,7 @@ index b93a7a63..314440f0 100644
 +		return nil, fmt.Errorf("Socket activation failed: %v", err)
 +	}
 +	switch len(listeners) {
-+	case 0:	
++	case 0:
 +		// No socket-activation found
 +		switch net {
 +		case "unix":
@@ -43,11 +43,11 @@ index b93a7a63..314440f0 100644
  	}
  }
  
-diff --git a/vendor/github.com/coreos/go-systemd/LICENSE b/vendor/github.com/coreos/go-systemd/LICENSE
+diff --git a/vendor/github.com/coreos/go-systemd/v22/LICENSE b/vendor/github.com/coreos/go-systemd/v22/LICENSE
 new file mode 100644
-index 00000000..37ec93a1
+index 0000000000..37ec93a14f
 --- /dev/null
-+++ b/vendor/github.com/coreos/go-systemd/LICENSE
++++ b/vendor/github.com/coreos/go-systemd/v22/LICENSE
 @@ -0,0 +1,191 @@
 +Apache License
 +Version 2.0, January 2004
@@ -240,23 +240,23 @@ index 00000000..37ec93a1
 +   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 +   See the License for the specific language governing permissions and
 +   limitations under the License.
-diff --git a/vendor/github.com/coreos/go-systemd/NOTICE b/vendor/github.com/coreos/go-systemd/NOTICE
+diff --git a/vendor/github.com/coreos/go-systemd/v22/NOTICE b/vendor/github.com/coreos/go-systemd/v22/NOTICE
 new file mode 100644
-index 00000000..23a0ada2
+index 0000000000..23a0ada2fb
 --- /dev/null
-+++ b/vendor/github.com/coreos/go-systemd/NOTICE
++++ b/vendor/github.com/coreos/go-systemd/v22/NOTICE
 @@ -0,0 +1,5 @@
 +CoreOS Project
 +Copyright 2018 CoreOS, Inc
 +
 +This product includes software developed at CoreOS, Inc.
 +(http://www.coreos.com/).
-diff --git a/vendor/github.com/coreos/go-systemd/activation/files.go b/vendor/github.com/coreos/go-systemd/activation/files.go
+diff --git a/vendor/github.com/coreos/go-systemd/v22/activation/files_unix.go b/vendor/github.com/coreos/go-systemd/v22/activation/files_unix.go
 new file mode 100644
-index 00000000..29dd18de
+index 0000000000..bf7671dd2b
 --- /dev/null
-+++ b/vendor/github.com/coreos/go-systemd/activation/files.go
-@@ -0,0 +1,67 @@
++++ b/vendor/github.com/coreos/go-systemd/v22/activation/files_unix.go
+@@ -0,0 +1,70 @@
 +// Copyright 2015 CoreOS, Inc.
 +//
 +// Licensed under the Apache License, Version 2.0 (the "License");
@@ -270,6 +270,9 @@ index 00000000..29dd18de
 +// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 +// See the License for the specific language governing permissions and
 +// limitations under the License.
++
++//go:build !windows
++// +build !windows
 +
 +// Package activation implements primitives for systemd socket activation.
 +package activation
@@ -324,11 +327,38 @@ index 00000000..29dd18de
 +
 +	return files
 +}
-diff --git a/vendor/github.com/coreos/go-systemd/activation/listeners.go b/vendor/github.com/coreos/go-systemd/activation/listeners.go
+diff --git a/vendor/github.com/coreos/go-systemd/v22/activation/files_windows.go b/vendor/github.com/coreos/go-systemd/v22/activation/files_windows.go
 new file mode 100644
-index 00000000..3dbe2b08
+index 0000000000..d391bf00c5
 --- /dev/null
-+++ b/vendor/github.com/coreos/go-systemd/activation/listeners.go
++++ b/vendor/github.com/coreos/go-systemd/v22/activation/files_windows.go
+@@ -0,0 +1,21 @@
++// Copyright 2015 CoreOS, Inc.
++//
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//     http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++package activation
++
++import "os"
++
++func Files(unsetEnv bool) []*os.File {
++	return nil
++}
+diff --git a/vendor/github.com/coreos/go-systemd/v22/activation/listeners.go b/vendor/github.com/coreos/go-systemd/v22/activation/listeners.go
+new file mode 100644
+index 0000000000..3dbe2b0877
+--- /dev/null
++++ b/vendor/github.com/coreos/go-systemd/v22/activation/listeners.go
 @@ -0,0 +1,103 @@
 +// Copyright 2015 CoreOS, Inc.
 +//
@@ -433,11 +463,11 @@ index 00000000..3dbe2b08
 +
 +	return listeners, err
 +}
-diff --git a/vendor/github.com/coreos/go-systemd/activation/packetconns.go b/vendor/github.com/coreos/go-systemd/activation/packetconns.go
+diff --git a/vendor/github.com/coreos/go-systemd/v22/activation/packetconns.go b/vendor/github.com/coreos/go-systemd/v22/activation/packetconns.go
 new file mode 100644
-index 00000000..a9720678
+index 0000000000..a97206785a
 --- /dev/null
-+++ b/vendor/github.com/coreos/go-systemd/activation/packetconns.go
++++ b/vendor/github.com/coreos/go-systemd/v22/activation/packetconns.go
 @@ -0,0 +1,38 @@
 +// Copyright 2015 CoreOS, Inc.
 +//
