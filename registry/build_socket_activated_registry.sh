@@ -12,7 +12,6 @@ fi
 rm -rf distribution-$ver
 tar -xf v${ver}.tar.gz
 cd distribution-$ver
-patch -p1 < ../4020.patch
 cp ../config.yml cmd/registry/config-dev.yml
 podman build --tag registry:2-sa --tag registry:$ver-sa .
 cd ..

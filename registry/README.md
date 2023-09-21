@@ -1,8 +1,6 @@
 # Docker/Podman registry
 
-Currenly, the registry does not support systemd socket-activation.
-
-A pull-request has been generated to add this support here: https://github.com/distribution/distribution/pull/4020
+As of Sep 21, 2023, socket-activation is included in the registry repository, but an official release has not yet been made/
 
 In the meantime, this patch can be manually applied to the latest version and the container rebuilt.  The patch
 can support either open or TLS connections
