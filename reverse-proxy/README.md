@@ -4,10 +4,6 @@ Nginx does not directly support socket-activation, but there is a
 [trick](https://freedesktop.org/wiki/Software/systemd/DaemonSocketActivation/)
 that allows it to work well.
 
-Erik Sjölund has created an example nginx configuration using socket-activation and podman
-[here](https://github.com/eriksjolund/podman-nginx-socket-activation), but his example
-does not specifically implement a reverse-proxy.
-
 This example provides a capability similar to the [nginx-proxy](https://github.com/nginx-proxy/nginx-proxy)
 container, but using socket existance to trigger config gerneration instead of using dockergen to do so.
 The `socket-gen` utility is used to monitor for new unix-domain-sockets and to update the configuration
@@ -49,3 +45,9 @@ sub-directory.
 * systemctl --user enable reverse-proxy.socket
 * systemctl --user start reverse-proxy.socket
 
+# See also
+
+The GitHub repo [eriksjolund/podman-nginx-socket-activation](https://github.com/eriksjolund/podman-nginx-socket-activation)
+contains a few examples of podman running socket-activated nginx. In some of the examples
+rootless podman is able to use the privileged port 80 becasuse a systemd system service
+with `User=` is used.
